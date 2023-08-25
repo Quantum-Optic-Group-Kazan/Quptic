@@ -14,6 +14,7 @@ def set_wl(amount):
     The function can set PID_course of every type, not only constant
     we can place here some law, e.g. sin or cos but there is some style of doing
     this that is said in manual to WLM
+
     :param amount: the set of PID course
     :return:
     '''
@@ -26,6 +27,7 @@ def set_wl(amount):
 def set_wl2(amount):
     '''
     The same as set_wl but without feedback
+
     :param amount: the set of PID course
     :return:
     '''
@@ -55,6 +57,11 @@ def wavelength_regulation(cycle_steps, initial_wave, delta_wave, time_pause_set,
         2 - wavelength that was set
         3 - wavelength that was got after set to check whether it was set right
         4 - power of the measurement shot
+        _________________________________________________________________
+        Comment:
+        _________________________________________________________________
+        The function uses SetPIDCourse, hence we need PID regulator on when use
+        it.
     '''
     d = {}
     i = 1
@@ -72,6 +79,17 @@ def wavelength_regulation(cycle_steps, initial_wave, delta_wave, time_pause_set,
     return d
 
 def wavelength_PID_bond(points, PID_step, PID_start, expo_time):
+    '''
+        Function reveals the dependency between PID and wavelength
+
+        :param points: the number of PID points
+        :param PID_step: step per each PID point
+        :param PID_start: the start
+        :param expo_time: exposition or any delay time
+        :return: the dictionary of (PID, wavelength) tuples
+
+        Comment: here wavelength is in [nm]
+    '''
     i = 0
     d = {}
     while (i < points):
@@ -84,6 +102,7 @@ def wavelength_PID_bond(points, PID_step, PID_start, expo_time):
     wlmData.dll.SetDeviationSignalNum(1, PID_start)
     return d
 
+# Don't need it really. Better to make general plotter than. To reduce code for plotting
 def plot_wavelength_PID_bond(points, PID_step):
     expo_time =  wlmData.dll.GetExposureNum(1,1,0)
     start_pid = wlmData.dll.GetDeviationSignalNum(1,0)
@@ -96,18 +115,32 @@ def plot_wavelength_PID_bond(points, PID_step):
     plt.show()
 
 def wl_stabilisation_after_set(wave, time_pause, precision):
-    time1 = time.time()
+    '''
+        The function finds the time of stabilisation after setting PID course
+
+        :param wave: wavelength in [nm]
+        :param time_pause: time to pause between checks of correctness in [ms]
+        :param precision: the precision in the digits terms e.g. 5 means 5 digits after point
+        :return: the time in [ms]
+
+        Comment: The function uses SetPIDCourse, hence we need PID regulator on when use
+        it.
+    '''
+    i = 1
+    prec_as_num = 1
+    while(i <= precision):
+        prec_as_num*=0.1
+        i+=1
     set_wl2(wave)
+    time1 = time.time()
     delta = round(abs(wave - wlmData.dll.GetWavelengthNum(1,0)),6)
-    print(delta)
-    while(delta > precision):
+    while(delta > prec_as_num):
         time.sleep(time_pause*0.001)
         delta = round(abs(wave - wlmData.dll.GetWavelengthNum(1,0)),6)
     time2 = time.time()
     return round((time2-time1)*1000,2)
 
 def reference_const_PID_stabilisator(mode: bool, reference_wl, koef, max_PID_val, time_pause, timer, start_PID_point = 1860):
-    # if bool mode true than frequency other way - wavelength
     '''
         The function stabilises the reference value of frequency for "timer" seconds;
         2nd version of algorithm
@@ -118,7 +151,7 @@ def reference_const_PID_stabilisator(mode: bool, reference_wl, koef, max_PID_val
         :param max_PID_val: max val in mV for PID
         :param time_pause: pause after setting value needed
         :param timer: time of algorithm execution
-        :param start_PID_point: starting point of PID setting
+        :param start_PID_point: starting point of PID setting. Better to get current from wlm and push it here
         :return:
     '''
     stabilised = False
@@ -138,22 +171,38 @@ def reference_const_PID_stabilisator(mode: bool, reference_wl, koef, max_PID_val
                                        wlmConst.cReturnFrequency)
         delta = reference - wave_current
         abs_dev = abs(delta)
-        if(abs_dev <= 10e-07):
+        # 0.125 changes in 180 kHz. it's the 7th from point int THz view of freq
+        if(abs_dev >= 10e-07 and abs_dev <= 5*10e-07):
             if (delta > 0):
                 PID_step = -0.125
             elif (delta < 0):
                 PID_step = 0.125
-        elif(abs_dev > 10e-07 and abs_dev <= 10e-06):
+        elif (abs_dev > 5*10e-07 and abs_dev <= 10e-06):
             if (delta > 0):
-                PID_step = -1.25
+                PID_step = -0.625
             elif (delta < 0):
-                PID_step = 1.25
-        elif(abs_dev > 10e-06 ):
+                PID_step = 0.625
+        elif (abs_dev > 10e-06 and abs_dev <= 5*10e-06):
+            if (delta > 0):
+                PID_step = -3.125
+            elif (delta < 0):
+                PID_step = 3.125
+        elif (abs_dev > 5*10e-06 and abs_dev <= 10e-05):
+            if (delta > 0):
+                PID_step = -15.625
+            elif (delta < 0):
+                PID_step = 15.625
+        elif (abs_dev > 10e-05 and abs_dev <= 10e-04):
+            if (delta > 0):
+                PID_step = -156.25
+            elif (delta < 0):
+                PID_step = 156.25
+        elif(abs_dev > 10e-04 ):
             PID_step = delta / koef
         if(( PID_current + PID_step ) > max_PID_val or ( PID_current + PID_step ) < 0):
             print("Out of bounds PID setting")
             break
-        if(round(delta,8) == 0.00000000):
+        if(round(delta,7) == 0.0000000):
             stabilised = True
         elif(stabilised):
             stabilised = False
