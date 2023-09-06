@@ -33,6 +33,16 @@ def get_exposure1(chan: int):
         return answer
 
 # in UI there can be a checkbox to turn that on or off.
+def built_in_laser_regulation(mode: bool):
+    '''
+        Sets a regulation mode. Whether mode is true we use built-in laser regulation. If false - we don't use any.
+
+        :param chan: channel to use
+        :param mode: the parameter to turn regulation of laser on or off
+        :return: 0 or error
+    '''
+    return wlmData.dll.SetDeviationMode(mode)
+# in UI there can be a checkbox to turn that on or off.
 def autoexposure(chan: int, setting: bool):
     '''
         Sets an exposure mode. Whether setting is true we use auto mode. If false - than manual.
@@ -42,6 +52,7 @@ def autoexposure(chan: int, setting: bool):
         :return: 0 or error
     '''
     return wlmData.dll.SetExposureModeNum(chan, setting)
+
 # Sets the exposition. Parameter is the channel to use. Param can be set in separate scroll or else in UI
 # Value to be set can be shown in text form in UI
 def set_exposure1(chan: int, value):
@@ -274,7 +285,7 @@ def reference_const_PID_stabilisator(mode: bool,  reference_wl: float, koef: flo
 # In UI could've been made Timing field, field that shows the result that refreshes every "timing" ms
 # then an interface unit like scroller or else could make reset of units of measurement.  "chan" is also specified by user
 # There also could be some action to start and terminate this process from user
-def ScanMeasurement(unit: int, chan: int):
+def scan_measurement(unit: int, chan: int):
     '''
 
     :param unit: a unit to get the result: 0 - nm; 1 - THz
